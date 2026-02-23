@@ -5,8 +5,10 @@ WINDOW_WIDTH = GRID_SIZE * TILE_SIZE + SIDEBAR_WIDTH
 WINDOW_HEIGHT = GRID_SIZE * TILE_SIZE
 FPS = 60
 TICK_RATE = 10       # ticks per second
+MOVE_COOLDOWN = 2    # ticks (~0.2s, 5 moves/sec)
 FIRE_COOLDOWN = 5    # ticks (~0.5s)
 SCAN_COOLDOWN = 10   # ticks (~1.0s)
+SCAN_MAX_AGE = 100   # ticks (~10s) before breadcrumbs expire
 
 C_SPEED = 2          # tiles per tick (lightspeed)
 SHIP_SPEED = 1       # tiles per tick (0.5c)

@@ -96,7 +96,9 @@ class Renderer:
                 pygame.draw.lines(self.surface, color, False, points, 1)
 
     def _draw_scan_markers(self, player_ship, engine_tick_count):
-        recent = player_ship.scan_results[-10:]
+        from settings import SCAN_MAX_AGE
+        alive = [r for r in player_ship.scan_results if engine_tick_count - r.turn_detected <= SCAN_MAX_AGE]
+        recent = alive[-10:]
         total = len(recent)
         for i, result in enumerate(recent):
             ex, ey = result.enemy_position

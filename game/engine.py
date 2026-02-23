@@ -2,7 +2,7 @@ import math
 from game.ship import Ship, ScanResult
 from game.projectile import Laser, ScanPulse
 from game.bot import Bot
-from settings import GRID_SIZE, FIRE_COOLDOWN, SCAN_COOLDOWN
+from settings import GRID_SIZE, MOVE_COOLDOWN, FIRE_COOLDOWN, SCAN_COOLDOWN
 
 
 class GameEngine:
@@ -23,10 +23,14 @@ class GameEngine:
         self.tick_count += 1
 
         # Decrement cooldowns
+        if self.player.move_cooldown > 0:
+            self.player.move_cooldown -= 1
         if self.player.fire_cooldown > 0:
             self.player.fire_cooldown -= 1
         if self.player.scan_cooldown > 0:
             self.player.scan_cooldown -= 1
+        if self.bot.move_cooldown > 0:
+            self.bot.move_cooldown -= 1
         if self.bot.fire_cooldown > 0:
             self.bot.fire_cooldown -= 1
         if self.bot.scan_cooldown > 0:
@@ -38,8 +42,10 @@ class GameEngine:
                 dx, dy = player_direction
                 if (dx, dy) != (0, 0):
                     self.player.facing = (dx, dy)
-                self.player.x += dx
-                self.player.y += dy
+                if self.player.move_cooldown == 0:
+                    self.player.x += dx
+                    self.player.y += dy
+                    self.player.move_cooldown = MOVE_COOLDOWN
             if player_fire and self.player.fire_cooldown == 0:
                 dx, dy = self.player.facing
                 self.lasers.append(Laser(x=self.player.x, y=self.player.y, dx=dx, dy=dy, owner="player"))
@@ -57,8 +63,10 @@ class GameEngine:
                 dx, dy = bot_dir
                 if (dx, dy) != (0, 0):
                     self.bot.facing = (dx, dy)
-                self.bot.x += dx
-                self.bot.y += dy
+                if self.bot.move_cooldown == 0:
+                    self.bot.x += dx
+                    self.bot.y += dy
+                    self.bot.move_cooldown = MOVE_COOLDOWN
             if bot_fire and self.bot.fire_cooldown == 0:
                 dx, dy = self.bot.facing
                 self.lasers.append(Laser(x=self.bot.x, y=self.bot.y, dx=dx, dy=dy, owner="bot"))

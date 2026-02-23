@@ -2,7 +2,7 @@ import pygame
 from settings import (
     GRID_SIZE, TILE_SIZE, SIDEBAR_WIDTH, WINDOW_HEIGHT,
     COLOR_HUD_BG, COLOR_HUD_TEXT, COLOR_WHITE, COLOR_PLAYER,
-    FIRE_COOLDOWN, SCAN_COOLDOWN,
+    FIRE_COOLDOWN, SCAN_COOLDOWN, SCAN_MAX_AGE,
 )
 
 GRID_PX = GRID_SIZE * TILE_SIZE
@@ -100,7 +100,8 @@ class HUD:
         header = self.font.render("Scan History:", True, COLOR_HUD_TEXT)
         self.surface.blit(header, (BTN_X, y))
         y += 20
-        results = engine.player.scan_results[-10:]
+        alive = [r for r in engine.player.scan_results if engine.tick_count - r.turn_detected <= SCAN_MAX_AGE]
+        results = alive[-10:]
         total = len(results)
         for i, r in enumerate(reversed(results)):
             rank = i + 1  # 1 = newest, N = oldest
