@@ -1,3 +1,4 @@
+import math
 import pygame
 from settings import (
     GRID_SIZE, TILE_SIZE, COLOR_BG, COLOR_GRID, COLOR_PLAYER, COLOR_ENEMY,
@@ -5,11 +6,14 @@ from settings import (
     COLOR_SCAN_MARK, COLOR_WHITE,
 )
 
+HALF = TILE_SIZE / 2
+
 
 class Renderer:
     def __init__(self, surface: pygame.Surface):
         self.surface = surface
-        self.font = pygame.font.SysFont("monospace", 14)
+        self.font = pygame.font.SysFont("monospace", 10)
+        self.debug = False
 
     def draw(self, engine):
         self._draw_grid()
@@ -17,12 +21,14 @@ class Renderer:
         self._draw_lasers(engine)
         self._draw_scan_markers(engine.player)
         self._draw_ship(engine.player, COLOR_PLAYER)
-        # Bot is invisible — only scan markers show where it might be
+        if self.debug:
+            self._draw_ship(engine.bot, COLOR_ENEMY)
 
     def _draw_grid(self):
         grid_area = GRID_SIZE * TILE_SIZE
         self.surface.fill(COLOR_BG, (0, 0, grid_area, grid_area))
-        for i in range(GRID_SIZE + 1):
+        step = max(1, 10 if TILE_SIZE < 10 else 1)
+        for i in range(0, GRID_SIZE + 1, step):
             x = i * TILE_SIZE
             pygame.draw.line(self.surface, COLOR_GRID, (x, 0), (x, grid_area))
             pygame.draw.line(self.surface, COLOR_GRID, (0, x), (grid_area, x))
@@ -30,49 +36,73 @@ class Renderer:
     def _draw_ship(self, ship, color):
         if not ship.alive:
             return
-        cx = ship.x * TILE_SIZE + TILE_SIZE // 2
-        cy = ship.y * TILE_SIZE + TILE_SIZE // 2
-        r = TILE_SIZE // 3
-        pygame.draw.polygon(self.surface, color, [
-            (cx, cy - r),
-            (cx - r, cy + r),
-            (cx + r, cy + r),
-        ])
+        cx = ship.x * TILE_SIZE + HALF
+        cy = ship.y * TILE_SIZE + HALF
+        r = max(TILE_SIZE // 2, 4)
+        fdx, fdy = ship.facing
+        angle = math.atan2(-fdy, fdx)
+        points = []
+        for a in [0, 2.4, -2.4]:
+            px = cx + r * math.cos(angle + a)
+            py = cy - r * math.sin(angle + a)
+            points.append((px, py))
+        pygame.draw.polygon(self.surface, color, points)
 
     def _draw_lasers(self, engine):
         for laser in engine.lasers:
             color = COLOR_LASER_P if laser.owner == "player" else COLOR_LASER_E
-            cx = laser.x * TILE_SIZE + TILE_SIZE // 2
-            cy = laser.y * TILE_SIZE + TILE_SIZE // 2
-            # Draw a bright dot for the laser head
-            pygame.draw.circle(self.surface, color, (cx, cy), 5)
-            # Draw a tail trailing back
-            tail_x = cx - laser.dx * TILE_SIZE
-            tail_y = cy - laser.dy * TILE_SIZE
-            pygame.draw.line(self.surface, color, (tail_x, tail_y), (cx, cy), 2)
+            cx = laser.x * TILE_SIZE + HALF
+            cy = laser.y * TILE_SIZE + HALF
+            pygame.draw.circle(self.surface, color, (int(cx), int(cy)), max(3, TILE_SIZE // 2))
+            tail_x = cx - laser.dx * TILE_SIZE * 2
+            tail_y = cy - laser.dy * TILE_SIZE * 2
+            pygame.draw.line(self.surface, color, (int(tail_x), int(tail_y)), (int(cx), int(cy)), 2)
 
     def _draw_scan_pulses(self, engine):
+        if not self.debug:
+            return
         for pulse in engine.scan_pulses:
             if pulse.radius <= 0:
                 continue
-            color = COLOR_SCAN_RET if pulse.returning else COLOR_SCAN_OUT
-            # Draw Chebyshev ring as a rectangle outline
-            left = (pulse.origin_x - pulse.radius) * TILE_SIZE
-            top = (pulse.origin_y - pulse.radius) * TILE_SIZE
-            size = pulse.radius * 2 * TILE_SIZE
-            rect = pygame.Rect(left, top, size, size)
-            pygame.draw.rect(self.surface, color, rect, 1)
+            color = COLOR_PLAYER if pulse.owner == "player" else COLOR_ENEMY
+            cx = int(pulse.origin_x * TILE_SIZE + HALF)
+            cy = int(pulse.origin_y * TILE_SIZE + HALF)
+            pixel_radius = int(pulse.radius * TILE_SIZE)
+            if pulse.returning:
+                # Solid line for return
+                pygame.draw.circle(self.surface, color, (cx, cy), pixel_radius, 2)
+            else:
+                # Dashed circle for outgoing
+                self._draw_dashed_circle(cx, cy, pixel_radius, color)
+
+    def _draw_dashed_circle(self, cx, cy, radius, color, dash_len=12, gap_len=8):
+        if radius < 1:
+            return
+        circumference = 2 * math.pi * radius
+        total = dash_len + gap_len
+        segments = max(1, int(circumference / total))
+        for i in range(segments):
+            start_angle = (i * total / radius)
+            end_angle = start_angle + dash_len / radius
+            # Draw arc as short line segments
+            steps = max(2, dash_len // 3)
+            points = []
+            for s in range(steps + 1):
+                a = start_angle + (end_angle - start_angle) * s / steps
+                px = cx + radius * math.cos(a)
+                py = cy + radius * math.sin(a)
+                points.append((int(px), int(py)))
+            if len(points) >= 2:
+                pygame.draw.lines(self.surface, color, False, points, 1)
 
     def _draw_scan_markers(self, player_ship):
         for result in player_ship.scan_results:
             ex, ey = result.enemy_position
-            cx = ex * TILE_SIZE + TILE_SIZE // 2
-            cy = ey * TILE_SIZE + TILE_SIZE // 2
-            # Ghost diamond marker
-            s = TILE_SIZE // 4
+            cx = ex * TILE_SIZE + HALF
+            cy = ey * TILE_SIZE + HALF
+            s = max(TILE_SIZE // 2, 4)
             pygame.draw.polygon(self.surface, COLOR_SCAN_MARK, [
                 (cx, cy - s), (cx + s, cy), (cx, cy + s), (cx - s, cy),
             ], 2)
-            # Staleness label
-            label = self.font.render(f"t-{result.turn_received - result.turn_detected}", True, COLOR_SCAN_MARK)
-            self.surface.blit(label, (cx + s + 2, cy - 8))
+            label = self.font.render(f"{result.turn_received - result.turn_detected}", True, COLOR_SCAN_MARK)
+            self.surface.blit(label, (int(cx + s + 1), int(cy - 5)))

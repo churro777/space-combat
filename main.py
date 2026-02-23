@@ -18,9 +18,9 @@ def main():
     bot = Bot()
     renderer = Renderer(screen)
     hud = HUD(screen)
-    input_handler = InputHandler(hud)
+    input_handler = InputHandler(hud, renderer)
 
-    hud.show_message("Select an action: Scan(S) Move(M) Fire(F)", 180)
+    hud.show_message("WASD:move  Space:fire  F:scan", 180)
 
     running = True
     while running:
@@ -35,8 +35,7 @@ def main():
         if restart:
             engine = GameEngine()
             bot = Bot()
-            hud.selected_action = None
-            hud.show_message("New game! Select an action.", 120)
+            hud.show_message("New game!", 120)
             continue
 
         if player_action and not engine.game_over:

@@ -46,7 +46,9 @@ class Bot:
             dy = dy // abs(dy)
         if (dx, dy) == (0, 0):
             dx, dy = random.choice(DIR_LIST)
-        return {"type": "fire", "direction": (dx, dy)}
+        # Face the target, then fire
+        ship.facing = (dx, dy)
+        return {"type": "fire"}
 
     def _random_move(self, ship: Ship) -> dict:
         # Prefer continuing in same direction, but sometimes change

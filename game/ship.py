@@ -13,6 +13,7 @@ class Ship:
     x: int
     y: int
     alive: bool = True
+    facing: tuple[int, int] = (1, 0)  # direction ship is pointing (dx, dy)
     scan_results: list[ScanResult] = field(default_factory=list)
 
     @property

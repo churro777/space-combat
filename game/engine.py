@@ -1,3 +1,4 @@
+import math
 from game.ship import Ship, ScanResult
 from game.projectile import Laser, ScanPulse
 from settings import GRID_SIZE, DIRECTIONS
@@ -5,8 +6,8 @@ from settings import GRID_SIZE, DIRECTIONS
 
 class GameEngine:
     def __init__(self):
-        self.player = Ship(x=2, y=GRID_SIZE // 2)
-        self.bot = Ship(x=GRID_SIZE - 3, y=GRID_SIZE // 2)
+        self.player = Ship(x=10, y=GRID_SIZE // 2)
+        self.bot = Ship(x=GRID_SIZE - 11, y=GRID_SIZE // 2)
         self.lasers: list[Laser] = []
         self.scan_pulses: list[ScanPulse] = []
         self.turn = 0
@@ -33,12 +34,9 @@ class GameEngine:
             tiles = laser.advance()
             laser_trails.append((laser, tiles))
 
-        # 3. Expand scan pulses
+        # 3. Expand all scan pulses (outgoing and returning both expand)
         for pulse in self.scan_pulses:
-            if pulse.returning:
-                pulse.radius -= 2
-            else:
-                pulse.expand()
+            pulse.expand()
 
         # 4. Laser-ship collisions
         for laser, tiles in laser_trails:
@@ -47,25 +45,47 @@ class GameEngine:
                 target.alive = False
 
         # 5. Outgoing scan contacts
-        # The pulse swept from (old_radius+1) to (new_radius) this turn.
-        # Check if enemy is within that band using Chebyshev distance.
-        for pulse in self.scan_pulses:
+        # The pulse swept from (old_radius) to (new_radius) this turn.
+        # Check if enemy is within that band using Euclidean distance.
+        # On contact, remove the outgoing pulse and spawn a new return pulse
+        # expanding from the enemy's detected position.
+        new_return_pulses = []
+        for pulse in list(self.scan_pulses):
             if pulse.returning:
                 continue
             target = self.bot if pulse.owner == "player" else self.player
             if not target.alive:
                 continue
-            dist = max(abs(target.x - pulse.origin_x), abs(target.y - pulse.origin_y))
-            old_radius = pulse.radius - 2  # radius before this turn's expansion
-            if old_radius < dist <= pulse.radius:
-                pulse.contact_position = target.position
-                pulse.contact_turn = self.turn
-                pulse.returning = True
+            dx = target.x - pulse.origin_x
+            dy = target.y - pulse.origin_y
+            dist = math.sqrt(dx * dx + dy * dy)
+            old_radius = pulse.radius - 2
+            if old_radius <= dist <= pulse.radius:
+                # Spawn return pulse from enemy's position
+                new_return_pulses.append(ScanPulse(
+                    origin_x=target.x,
+                    origin_y=target.y,
+                    radius=0,
+                    owner=pulse.owner,
+                    returning=True,
+                    contact_position=target.position,
+                    contact_turn=self.turn,
+                ))
+                self.scan_pulses.remove(pulse)
+        self.scan_pulses.extend(new_return_pulses)
 
         # 6. Returning scan arrivals
+        # The return ping is an expanding circle from the enemy's detected position.
+        # It delivers when the ring passes over the owner ship's CURRENT position.
         for pulse in list(self.scan_pulses):
-            if pulse.returning and pulse.radius <= 0 and pulse.contact_position:
-                owner_ship = self.player if pulse.owner == "player" else self.bot
+            if not pulse.returning or not pulse.contact_position:
+                continue
+            owner_ship = self.player if pulse.owner == "player" else self.bot
+            dx = owner_ship.x - pulse.origin_x
+            dy = owner_ship.y - pulse.origin_y
+            dist = math.sqrt(dx * dx + dy * dy)
+            old_radius = pulse.radius - 2
+            if old_radius <= dist <= pulse.radius:
                 owner_ship.scan_results.append(ScanResult(
                     enemy_position=pulse.contact_position,
                     turn_detected=pulse.contact_turn,
@@ -94,10 +114,12 @@ class GameEngine:
         kind = action.get("type")
         if kind == "move":
             dx, dy = action["direction"]
+            if (dx, dy) != (0, 0):
+                ship.facing = (dx, dy)
             ship.x += dx
             ship.y += dy
         elif kind == "fire":
-            dx, dy = action["direction"]
+            dx, dy = ship.facing
             self.lasers.append(Laser(x=ship.x, y=ship.y, dx=dx, dy=dy, owner=owner))
         elif kind == "scan":
             self.scan_pulses.append(ScanPulse(
