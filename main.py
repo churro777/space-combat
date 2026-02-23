@@ -1,6 +1,6 @@
 import sys
 import pygame
-from settings import WINDOW_WIDTH, WINDOW_HEIGHT, FPS
+from settings import WINDOW_WIDTH, WINDOW_HEIGHT, FPS, TICK_RATE
 from game.engine import GameEngine
 from game.bot import Bot
 from ui.renderer import Renderer
@@ -14,34 +14,41 @@ def main():
     pygame.display.set_caption("Space Combat v2 — Relativistic Warfare")
     clock = pygame.time.Clock()
 
-    engine = GameEngine()
     bot = Bot()
+    engine = GameEngine(bot)
     renderer = Renderer(screen)
     hud = HUD(screen)
     input_handler = InputHandler(hud, renderer)
 
     hud.show_message("WASD:move  Space:fire  F:scan", 180)
 
+    tick_interval = 1.0 / TICK_RATE
+    tick_accumulator = 0.0
+
     running = True
     while running:
-        clock.tick(FPS)
+        dt = clock.tick(FPS) / 1000.0
+        tick_accumulator += dt
 
-        quit_game, player_action, restart = input_handler.process_events()
+        quit_game, restart = input_handler.process_events()
 
         if quit_game:
             running = False
             continue
 
         if restart:
-            engine = GameEngine()
             bot = Bot()
+            engine = GameEngine(bot)
+            tick_accumulator = 0.0
             hud.show_message("New game!", 120)
             continue
 
-        if player_action and not engine.game_over:
-            bot_action = bot.choose_action(engine.bot, engine.turn)
-            engine.resolve_turn(player_action, bot_action)
-            hud.show_message(f"Turn {engine.turn} resolved.", 60)
+        # Run ticks
+        while tick_accumulator >= tick_interval:
+            tick_accumulator -= tick_interval
+            if not engine.game_over:
+                direction, fire, scan = input_handler.get_continuous_state()
+                engine.tick(direction, fire, scan)
 
         renderer.draw(engine)
         hud.draw(engine)

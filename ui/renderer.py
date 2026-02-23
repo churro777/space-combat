@@ -19,7 +19,7 @@ class Renderer:
         self._draw_grid()
         self._draw_scan_pulses(engine)
         self._draw_lasers(engine)
-        self._draw_scan_markers(engine.player)
+        self._draw_scan_markers(engine.player, engine.tick_count)
         self._draw_ship(engine.player, COLOR_PLAYER)
         if self.debug:
             self._draw_ship(engine.bot, COLOR_ENEMY)
@@ -95,8 +95,10 @@ class Renderer:
             if len(points) >= 2:
                 pygame.draw.lines(self.surface, color, False, points, 1)
 
-    def _draw_scan_markers(self, player_ship):
-        for result in player_ship.scan_results:
+    def _draw_scan_markers(self, player_ship, engine_tick_count):
+        recent = player_ship.scan_results[-10:]
+        total = len(recent)
+        for i, result in enumerate(recent):
             ex, ey = result.enemy_position
             cx = ex * TILE_SIZE + HALF
             cy = ey * TILE_SIZE + HALF
@@ -104,5 +106,6 @@ class Renderer:
             pygame.draw.polygon(self.surface, COLOR_SCAN_MARK, [
                 (cx, cy - s), (cx + s, cy), (cx, cy + s), (cx - s, cy),
             ], 2)
-            label = self.font.render(f"{result.turn_received - result.turn_detected}", True, COLOR_SCAN_MARK)
+            rank = total - i  # newest = 1, oldest = N
+            label = self.font.render(str(rank), True, COLOR_SCAN_MARK)
             self.surface.blit(label, (int(cx + s + 1), int(cy - 5)))

@@ -2,6 +2,7 @@ import pygame
 from settings import (
     GRID_SIZE, TILE_SIZE, SIDEBAR_WIDTH, WINDOW_HEIGHT,
     COLOR_HUD_BG, COLOR_HUD_TEXT, COLOR_WHITE, COLOR_PLAYER,
+    FIRE_COOLDOWN, SCAN_COOLDOWN,
 )
 
 GRID_PX = GRID_SIZE * TILE_SIZE
@@ -27,8 +28,9 @@ class HUD:
 
         y = 10
 
-        # Turn counter
-        self.surface.blit(self.font.render(f"Turn: {engine.turn}", True, COLOR_WHITE), (BTN_X, y))
+        # Time display
+        time_sec = engine.tick_count / 10.0
+        self.surface.blit(self.font.render(f"Time: {time_sec:.1f}s", True, COLOR_WHITE), (BTN_X, y))
         y += 28
 
         # Facing direction
@@ -38,7 +40,13 @@ class HUD:
 
         # Position
         self.surface.blit(self.font.render(f"Pos: {engine.player.position}", True, COLOR_HUD_TEXT), (BTN_X, y))
-        y += 36
+        y += 28
+
+        # Cooldowns
+        self._draw_cooldown_bar(y, "Fire", engine.player.fire_cooldown, FIRE_COOLDOWN)
+        y += 20
+        self._draw_cooldown_bar(y, "Scan", engine.player.scan_cooldown, SCAN_COOLDOWN)
+        y += 28
 
         # Controls
         controls = [
@@ -47,8 +55,7 @@ class HUD:
             "Space        Fire",
             "F            Scan",
             "",
-            "R  Restart",
-            "Q  Quit",
+            "R  Restart   Q  Quit",
             "`  Debug",
         ]
         for line in controls:
@@ -69,15 +76,36 @@ class HUD:
         if engine.game_over:
             self._draw_game_over(engine)
 
+    def _draw_cooldown_bar(self, y, label, current, maximum):
+        text = f"{label}: "
+        if current == 0:
+            text += "READY"
+            color = (0, 200, 100)
+        else:
+            text += f"{current}"
+            color = (200, 100, 0)
+        self.surface.blit(self.small_font.render(text, True, color), (BTN_X, y))
+
+        # Draw bar
+        bar_x = BTN_X + 100
+        bar_w = 120
+        bar_h = 10
+        pygame.draw.rect(self.surface, (40, 40, 60), (bar_x, y + 2, bar_w, bar_h))
+        if maximum > 0:
+            fill = int(bar_w * (1 - current / maximum))
+            bar_color = (0, 200, 100) if current == 0 else (200, 100, 0)
+            pygame.draw.rect(self.surface, bar_color, (bar_x, y + 2, fill, bar_h))
+
     def _draw_scan_history(self, engine, y):
         header = self.font.render("Scan History:", True, COLOR_HUD_TEXT)
         self.surface.blit(header, (BTN_X, y))
         y += 20
-        results = engine.player.scan_results[-8:]
-        for r in reversed(results):
-            staleness = r.turn_received - r.turn_detected
+        results = engine.player.scan_results[-10:]
+        total = len(results)
+        for i, r in enumerate(reversed(results)):
+            rank = i + 1  # 1 = newest, N = oldest
             text = self.small_font.render(
-                f"T{r.turn_received}: @{r.enemy_position} d:{staleness}",
+                f"#{rank} @{r.enemy_position}",
                 True, COLOR_HUD_TEXT,
             )
             self.surface.blit(text, (BTN_X, y))

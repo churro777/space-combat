@@ -32,10 +32,11 @@ class InputHandler:
     def __init__(self, hud, renderer):
         self.hud = hud
         self.renderer = renderer
+        self._fire_pressed = False
+        self._scan_pressed = False
 
-    def process_events(self) -> tuple[bool, dict | None, bool]:
-        """Process pygame events. Returns (quit, action_or_none, restart)."""
-        action = None
+    def process_events(self) -> tuple[bool, bool]:
+        """Process pygame events. Returns (quit, restart)."""
         restart = False
         quit_game = False
 
@@ -49,13 +50,22 @@ class InputHandler:
                     restart = True
                 elif event.key == pygame.K_BACKQUOTE:
                     self.renderer.debug = not self.renderer.debug
-                elif event.key == pygame.K_SPACE and action is None:
-                    action = {"type": "fire"}
-                elif event.key == pygame.K_f and action is None:
-                    action = {"type": "scan"}
-                elif event.key in _MOVE_KEYS and action is None:
-                    direction = _get_move_direction(pygame.key.get_pressed())
-                    if direction:
-                        action = {"type": "move", "direction": direction}
+                elif event.key == pygame.K_SPACE:
+                    self._fire_pressed = True
+                elif event.key == pygame.K_f:
+                    self._scan_pressed = True
 
-        return quit_game, action, restart
+        return quit_game, restart
+
+    def get_continuous_state(self) -> tuple[tuple[int, int] | None, bool, bool]:
+        """Returns (direction, fire, scan) for the current tick.
+        Fire and scan are edge-triggered (one-shot per keypress)."""
+        keys = pygame.key.get_pressed()
+        direction = _get_move_direction(keys)
+
+        fire = self._fire_pressed
+        scan = self._scan_pressed
+        self._fire_pressed = False
+        self._scan_pressed = False
+
+        return direction, fire, scan

@@ -4,9 +4,12 @@ SIDEBAR_WIDTH = 260
 WINDOW_WIDTH = GRID_SIZE * TILE_SIZE + SIDEBAR_WIDTH
 WINDOW_HEIGHT = GRID_SIZE * TILE_SIZE
 FPS = 60
+TICK_RATE = 10       # ticks per second
+FIRE_COOLDOWN = 5    # ticks (~0.5s)
+SCAN_COOLDOWN = 10   # ticks (~1.0s)
 
-C_SPEED = 2          # tiles per turn (lightspeed)
-SHIP_SPEED = 1       # tiles per turn (0.5c)
+C_SPEED = 2          # tiles per tick (lightspeed)
+SHIP_SPEED = 1       # tiles per tick (0.5c)
 
 # 8 directions: name -> (dx, dy)
 DIRECTIONS = {
