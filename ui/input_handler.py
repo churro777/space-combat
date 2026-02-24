@@ -38,8 +38,16 @@ def _get_move_direction(keys) -> tuple[int, int] | None:
     return (dx, dy)
 
 
+_DPAD_BUTTONS = {
+    11: (0, -1),   # D-pad up
+    12: (0, 1),    # D-pad down
+    13: (-1, 0),   # D-pad left
+    14: (1, 0),    # D-pad right
+}
+
+
 def _get_joystick_direction(joystick) -> tuple[int, int] | None:
-    """Read left stick + d-pad hat and return a direction, or None."""
+    """Read left stick + d-pad buttons and return a direction, or None."""
     dx, dy = 0.0, 0.0
 
     # Left stick (axes 0, 1)
@@ -50,11 +58,11 @@ def _get_joystick_direction(joystick) -> tuple[int, int] | None:
     if abs(ay) > _STICK_DEADZONE:
         dy += ay
 
-    # D-pad hat (first hat)
-    if joystick.get_numhats() > 0:
-        hx, hy = joystick.get_hat(0)
-        dx += hx
-        dy -= hy  # hat y is inverted (up = +1)
+    # D-pad as buttons
+    for btn, (bdx, bdy) in _DPAD_BUTTONS.items():
+        if joystick.get_button(btn):
+            dx += bdx
+            dy += bdy
 
     if dx == 0 and dy == 0:
         return None
