@@ -1,4 +1,5 @@
 import math
+import random
 import pygame
 from settings import (
     GRID_SIZE, TILE_SIZE, COLOR_BG, COLOR_GRID, COLOR_PLAYER, COLOR_ENEMY,
@@ -8,14 +9,61 @@ from settings import (
 
 HALF = TILE_SIZE / 2
 
+FLAME_COLORS = [
+    (255, 255, 200),
+    (255, 220, 80),
+    (255, 160, 30),
+    (255, 80, 20),
+    (255, 40, 10),
+]
+
+
+class _Particle:
+    __slots__ = ("x", "y", "vx", "vy", "life", "max_life", "color", "size")
+
+    def __init__(self, x: float, y: float):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(20, 100)  # pixels/sec
+        self.x = x
+        self.y = y
+        self.vx = math.cos(angle) * speed
+        self.vy = math.sin(angle) * speed
+        self.life = random.uniform(0.6, 1.5)
+        self.max_life = self.life
+        self.color = random.choice(FLAME_COLORS)
+        self.size = random.uniform(2, 5)
+
 
 class Renderer:
     def __init__(self, surface: pygame.Surface):
         self.surface = surface
         self.font = pygame.font.SysFont("monospace", 10)
         self.debug = False
+        self._particles: list[_Particle] = []
+        self._known_explosion_count = 0
 
-    def draw(self, engine):
+    def draw(self, engine, dt: float = 0.016):
+        # Spawn particles for any new explosions
+        while self._known_explosion_count < len(engine.explosions):
+            ex, ey, _ = engine.explosions[self._known_explosion_count]
+            cx = ex * TILE_SIZE + HALF
+            cy = ey * TILE_SIZE + HALF
+            for _ in range(30):
+                self._particles.append(_Particle(cx, cy))
+            self._known_explosion_count += 1
+
+        # Update particles
+        alive = []
+        for p in self._particles:
+            p.life -= dt
+            if p.life > 0:
+                p.x += p.vx * dt
+                p.y += p.vy * dt
+                p.vx *= 0.97  # drag
+                p.vy *= 0.97
+                alive.append(p)
+        self._particles = alive
+
         self._draw_grid()
         self._draw_scan_pulses(engine)
         self._draw_lasers(engine)
@@ -27,6 +75,7 @@ class Renderer:
             self._draw_ship(engine.bot, COLOR_ENEMY)
             if engine.bot.shield:
                 self._draw_shield(engine.bot)
+        self._draw_particles()
 
     def _draw_grid(self):
         grid_area = GRID_SIZE * TILE_SIZE
@@ -57,6 +106,20 @@ class Renderer:
         cy = int(ship.y * TILE_SIZE + HALF)
         radius = max(TILE_SIZE // 2, 4) + 3
         pygame.draw.circle(self.surface, (80, 150, 255), (cx, cy), radius, 1)
+
+    def _draw_particles(self):
+        for p in self._particles:
+            t = p.life / p.max_life  # 1.0 → 0.0
+            alpha = max(0, min(255, int(255 * t)))
+            r, g, b = p.color
+            size = max(1, int(p.size * t))
+            surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(surf, (r, g, b, alpha), (size, size), size)
+            self.surface.blit(surf, (int(p.x) - size, int(p.y) - size))
+
+    def reset(self):
+        self._particles.clear()
+        self._known_explosion_count = 0
 
     def _draw_lasers(self, engine):
         for laser in engine.lasers:

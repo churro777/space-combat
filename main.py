@@ -140,6 +140,7 @@ def main():
         if restart:
             bot = Bot()
             engine = GameEngine(bot)
+            renderer.reset()
             tick_accumulator = 0.0
             hud.show_message("New game!", 120)
             continue
@@ -151,7 +152,7 @@ def main():
                 direction, fire, scan = input_handler.get_continuous_state()
                 engine.tick(direction, fire, scan)
 
-        renderer.draw(engine)
+        renderer.draw(engine, dt)
         hud.draw(engine)
         pygame.display.flip()
 

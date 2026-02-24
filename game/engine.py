@@ -2,7 +2,7 @@ import math
 from game.ship import Ship, ScanResult
 from game.projectile import Laser, ScanPulse
 from game.bot import Bot
-from settings import GRID_SIZE, MOVE_COOLDOWN, FIRE_COOLDOWN, SCAN_COOLDOWN
+from settings import GRID_SIZE, MOVE_COOLDOWN, FIRE_COOLDOWN, SCAN_COOLDOWN, EXPLOSION_DURATION
 
 
 class GameEngine:
@@ -12,6 +12,7 @@ class GameEngine:
         self.lasers: list[Laser] = []
         self.scan_pulses: list[ScanPulse] = []
         self.tick_count = 0
+        self.explosions: list[tuple[int, int, int]] = []  # (x, y, start_tick)
         self.game_over = False
         self.winner: str | None = None
         self.bot_ai = bot_ai
@@ -99,6 +100,7 @@ class GameEngine:
                     target.shield = False
                 else:
                     target.alive = False
+                    self.explosions.append((target.x, target.y, self.tick_count))
 
         # 6. Outgoing scan contacts
         new_return_pulses = []
@@ -146,16 +148,20 @@ class GameEngine:
         self.lasers = [l for l in self.lasers if l.is_on_grid()]
         self.scan_pulses = [p for p in self.scan_pulses if not p.is_expired()]
 
-        # 9. Win/lose
-        if not self.bot.alive and not self.player.alive:
-            self.game_over = True
-            self.winner = "draw"
-        elif not self.bot.alive:
-            self.game_over = True
-            self.winner = "player"
-        elif not self.player.alive:
-            self.game_over = True
-            self.winner = "bot"
+        # 9. Win/lose (delayed until explosions finish)
+        has_active_explosion = any(
+            self.tick_count - t < EXPLOSION_DURATION for _, _, t in self.explosions
+        )
+        if not has_active_explosion:
+            if not self.bot.alive and not self.player.alive:
+                self.game_over = True
+                self.winner = "draw"
+            elif not self.bot.alive:
+                self.game_over = True
+                self.winner = "player"
+            elif not self.player.alive:
+                self.game_over = True
+                self.winner = "bot"
 
     def _clamp_ship(self, ship: Ship):
         ship.x = max(0, min(GRID_SIZE - 1, ship.x))

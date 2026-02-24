@@ -9,6 +9,7 @@ MOVE_COOLDOWN = 2    # ticks (~0.2s, 5 moves/sec)
 FIRE_COOLDOWN = 5    # ticks (~0.5s)
 SCAN_COOLDOWN = 10   # ticks (~1.0s)
 SCAN_MAX_AGE = 100   # ticks (~10s) before breadcrumbs expire
+EXPLOSION_DURATION = 15  # ticks (~1.5s)
 
 C_SPEED = 2          # tiles per tick (lightspeed)
 SHIP_SPEED = 1       # tiles per tick (0.5c)
