@@ -82,6 +82,12 @@ class GameEngine:
         self._clamp_ship(self.player)
         self._clamp_ship(self.bot)
 
+        # 2b. Ship-to-ship collision (both die)
+        if self.player.alive and self.bot.alive and self.player.position == self.bot.position:
+            for ship in (self.player, self.bot):
+                ship.alive = False
+                self.explosions.append((ship.x, ship.y, self.tick_count))
+
         # 3. Advance existing lasers
         laser_trails: list[tuple[Laser, list[tuple[int, int]]]] = []
         for laser in self.lasers:

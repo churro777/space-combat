@@ -69,11 +69,11 @@ class Renderer:
         self._draw_lasers(engine)
         self._draw_scan_markers(engine.player, engine.tick_count)
         self._draw_ship(engine.player, COLOR_PLAYER)
-        if engine.player.shield:
+        if engine.player.shield and engine.player.alive:
             self._draw_shield(engine.player)
         if self.debug:
             self._draw_ship(engine.bot, COLOR_ENEMY)
-            if engine.bot.shield:
+            if engine.bot.shield and engine.bot.alive:
                 self._draw_shield(engine.bot)
         self._draw_particles()
 
