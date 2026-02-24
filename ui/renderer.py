@@ -21,8 +21,12 @@ class Renderer:
         self._draw_lasers(engine)
         self._draw_scan_markers(engine.player, engine.tick_count)
         self._draw_ship(engine.player, COLOR_PLAYER)
+        if engine.player.shield:
+            self._draw_shield(engine.player)
         if self.debug:
             self._draw_ship(engine.bot, COLOR_ENEMY)
+            if engine.bot.shield:
+                self._draw_shield(engine.bot)
 
     def _draw_grid(self):
         grid_area = GRID_SIZE * TILE_SIZE
@@ -47,6 +51,12 @@ class Renderer:
             py = cy - r * math.sin(angle + a)
             points.append((px, py))
         pygame.draw.polygon(self.surface, color, points)
+
+    def _draw_shield(self, ship):
+        cx = int(ship.x * TILE_SIZE + HALF)
+        cy = int(ship.y * TILE_SIZE + HALF)
+        radius = max(TILE_SIZE // 2, 4) + 3
+        pygame.draw.circle(self.surface, (80, 150, 255), (cx, cy), radius, 1)
 
     def _draw_lasers(self, engine):
         for laser in engine.lasers:

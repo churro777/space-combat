@@ -95,7 +95,10 @@ class GameEngine:
         for laser, tiles in laser_trails:
             target = self.bot if laser.owner == "player" else self.player
             if target.alive and target.position in tiles:
-                target.alive = False
+                if target.shield:
+                    target.shield = False
+                else:
+                    target.alive = False
 
         # 6. Outgoing scan contacts
         new_return_pulses = []
