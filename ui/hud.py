@@ -46,8 +46,9 @@ class HUD:
         if engine.player.shield:
             self.surface.blit(self.font.render("SHIELDS UP", True, (80, 150, 255)), (BTN_X, y))
         elif engine.player.alive:
+            secs = engine.player.shield_recharge / 10.0
             if engine.tick_count % 10 < 5:
-                self.surface.blit(self.font.render("SHIELDS DOWN", True, (255, 60, 60)), (BTN_X, y))
+                self.surface.blit(self.font.render(f"SHIELDS {secs:.1f}s", True, (255, 60, 60)), (BTN_X, y))
         y += 28
 
         # Cooldowns

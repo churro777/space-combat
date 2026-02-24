@@ -2,7 +2,7 @@ import math
 from game.ship import Ship, ScanResult
 from game.projectile import Laser, ScanPulse
 from game.bot import Bot
-from settings import GRID_SIZE, MOVE_COOLDOWN, FIRE_COOLDOWN, SCAN_COOLDOWN, EXPLOSION_DURATION
+from settings import GRID_SIZE, MOVE_COOLDOWN, FIRE_COOLDOWN, SCAN_COOLDOWN, EXPLOSION_DURATION, SHIELD_RECHARGE
 
 
 class GameEngine:
@@ -98,12 +98,20 @@ class GameEngine:
         for pulse in self.scan_pulses:
             pulse.expand()
 
-        # 5. Laser-ship collisions
+        # 5. Shield recharge
+        for ship in (self.player, self.bot):
+            if ship.alive and not ship.shield and ship.shield_recharge > 0:
+                ship.shield_recharge -= 1
+                if ship.shield_recharge == 0:
+                    ship.shield = True
+
+        # 6. Laser-ship collisions
         for laser, tiles in laser_trails:
             target = self.bot if laser.owner == "player" else self.player
             if target.alive and target.position in tiles:
                 if target.shield:
                     target.shield = False
+                    target.shield_recharge = SHIELD_RECHARGE
                 else:
                     target.alive = False
                     self.explosions.append((target.x, target.y, self.tick_count))

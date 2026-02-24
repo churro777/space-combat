@@ -19,6 +19,7 @@ class Ship:
     move_cooldown: int = 0
     fire_cooldown: int = 0
     scan_cooldown: int = 0
+    shield_recharge: int = 0
 
     @property
     def position(self) -> tuple[int, int]:
