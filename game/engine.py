@@ -89,7 +89,6 @@ class GameEngine:
                 dx, dy = self.bot.facing
                 self.lasers.append(Laser(x=self.bot.x, y=self.bot.y, dx=dx, dy=dy, owner="bot"))
                 self.bot.fire_cooldown = FIRE_COOLDOWN
-                self.events.append("laser_fire")
             if bot_scan and self.bot.scan_cooldown == 0:
                 self.scan_pulses.append(ScanPulse(
                     origin_x=self.bot.x, origin_y=self.bot.y, radius=0, owner="bot"
