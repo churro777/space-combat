@@ -80,6 +80,7 @@ class InputHandler:
         self.joystick = joystick
         self._fire_pressed = False
         self._scan_pressed = False
+        self._missile_pressed = False
 
     def process_events(self) -> tuple[bool, bool]:
         """Process pygame events. Returns (quit, restart)."""
@@ -100,19 +101,23 @@ class InputHandler:
                     self._fire_pressed = True
                 elif event.key == pygame.K_f:
                     self._scan_pressed = True
+                elif event.key == pygame.K_e:
+                    self._missile_pressed = True
             elif event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 0:      # A → fire
                     self._fire_pressed = True
                 elif event.button == 1:    # B → scan
                     self._scan_pressed = True
+                elif event.button == 3:    # Y → missile
+                    self._missile_pressed = True
                 elif event.button == 6:    # Start → restart
                     restart = True
 
         return quit_game, restart
 
-    def get_continuous_state(self) -> tuple[tuple[int, int] | None, bool, bool]:
-        """Returns (direction, fire, scan) for the current tick.
-        Fire and scan are edge-triggered (one-shot per keypress)."""
+    def get_continuous_state(self) -> tuple[tuple[int, int] | None, bool, bool, bool]:
+        """Returns (direction, fire, scan, missile) for the current tick.
+        Fire, scan, and missile are edge-triggered (one-shot per keypress)."""
         keys = pygame.key.get_pressed()
         direction = _get_move_direction(keys)
 
@@ -122,7 +127,9 @@ class InputHandler:
 
         fire = self._fire_pressed
         scan = self._scan_pressed
+        missile = self._missile_pressed
         self._fire_pressed = False
         self._scan_pressed = False
+        self._missile_pressed = False
 
-        return direction, fire, scan
+        return direction, fire, scan, missile

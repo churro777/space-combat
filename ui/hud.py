@@ -3,6 +3,7 @@ from settings import (
     GRID_SIZE, TILE_SIZE, SIDEBAR_WIDTH, WINDOW_HEIGHT,
     COLOR_HUD_BG, COLOR_HUD_TEXT, COLOR_WHITE, COLOR_PLAYER,
     FIRE_COOLDOWN, SCAN_COOLDOWN, SCAN_MAX_AGE,
+    MISSILE_COOLDOWN, MISSILE_AMMO,
 )
 
 GRID_PX = GRID_SIZE * TILE_SIZE
@@ -55,7 +56,17 @@ class HUD:
         self._draw_cooldown_bar(y, "Fire", engine.player.fire_cooldown, FIRE_COOLDOWN)
         y += 20
         self._draw_cooldown_bar(y, "Scan", engine.player.scan_cooldown, SCAN_COOLDOWN)
-        y += 28
+        y += 20
+        self._draw_cooldown_bar(y, "Missile", engine.player.missile_cooldown, MISSILE_COOLDOWN)
+        y += 4
+        if engine.player.missiles_remaining == 0:
+            missiles_text = "  NO MISSILES LEFT"
+            missiles_color = (255, 60, 60)
+        else:
+            missiles_text = f"  Missiles: {engine.player.missiles_remaining}/{MISSILE_AMMO}"
+            missiles_color = COLOR_HUD_TEXT
+        self.surface.blit(self.small_font.render(missiles_text, True, missiles_color), (BTN_X, y + 14))
+        y += 32
 
         # Controls
         controls = [
@@ -63,6 +74,7 @@ class HUD:
             "WASD/Arrows  Move",
             "Space        Fire",
             "F            Scan",
+            "E            Missile",
             "",
             "R  Restart   Q  Quit",
             "`  Debug",

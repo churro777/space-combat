@@ -10,27 +10,34 @@ class Bot:
     def __init__(self):
         self.last_move_dir = random.choice(DIR_LIST)
 
-    def choose_action(self, ship: Ship, tick: int) -> tuple[tuple[int, int] | None, bool, bool]:
-        """Returns (direction, fire, scan) for this tick."""
+    def choose_action(self, ship: Ship, tick: int) -> tuple[tuple[int, int] | None, bool, bool, bool]:
+        """Returns (direction, fire, scan, missile) for this tick."""
         if not ship.alive:
-            return None, False, False
+            return None, False, False, False
 
         recent = self._latest_scan(ship, tick)
 
         # If no scan data or data is very stale, scan
         if recent is None or (tick - recent.turn_received) > 60:
-            return self._random_move(ship), False, True
+            return self._random_move(ship), False, True, False
 
         # Predict enemy moved randomly — aim at last known position
         ex, ey = recent.enemy_position
 
+        # Occasionally fire a missile at last known position
+        fire_missile = (
+            ship.missile_cooldown == 0
+            and ship.missiles_remaining > 0
+            and random.random() < 0.2
+        )
+
         # With some probability, fire towards target
         if random.random() < 0.6:
             self._face_towards(ship, ex, ey)
-            return None, True, False
+            return None, True, False, fire_missile
 
         # Otherwise move to reposition
-        return self._random_move(ship), False, False
+        return self._random_move(ship), False, False, fire_missile
 
     def _latest_scan(self, ship: Ship, tick: int):
         if not ship.scan_results:

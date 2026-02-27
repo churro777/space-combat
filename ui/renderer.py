@@ -4,12 +4,12 @@ import pygame
 from settings import (
     GRID_SIZE, TILE_SIZE, COLOR_BG, COLOR_GRID, COLOR_PLAYER, COLOR_ENEMY,
     COLOR_LASER_P, COLOR_LASER_E, COLOR_SCAN_OUT, COLOR_SCAN_RET,
-    COLOR_SCAN_MARK, COLOR_WHITE,
+    COLOR_SCAN_MARK, COLOR_WHITE, MISSILE_BLAST_RADIUS, LASER_VISIBLE_RANGE,
 )
 
 HALF = TILE_SIZE / 2
 
-FLAME_COLORS = [
+SHIP_FLAME_COLORS = [
     (255, 255, 200),
     (255, 220, 80),
     (255, 160, 30),
@@ -17,21 +17,29 @@ FLAME_COLORS = [
     (255, 40, 10),
 ]
 
+MISSILE_FLAME_COLORS = [
+    (200, 255, 200),
+    (100, 255, 100),
+    (60, 200, 60),
+    (30, 160, 30),
+    (20, 120, 20),
+]
+
 
 class _Particle:
     __slots__ = ("x", "y", "vx", "vy", "life", "max_life", "color", "size")
 
-    def __init__(self, x: float, y: float):
+    def __init__(self, x: float, y: float, palette=None, speed_range=(20, 100), size_range=(2, 5), life_range=(0.6, 1.5)):
         angle = random.uniform(0, 2 * math.pi)
-        speed = random.uniform(20, 100)  # pixels/sec
+        speed = random.uniform(*speed_range)
         self.x = x
         self.y = y
         self.vx = math.cos(angle) * speed
         self.vy = math.sin(angle) * speed
-        self.life = random.uniform(0.6, 1.5)
+        self.life = random.uniform(*life_range)
         self.max_life = self.life
-        self.color = random.choice(FLAME_COLORS)
-        self.size = random.uniform(2, 5)
+        self.color = random.choice(palette or SHIP_FLAME_COLORS)
+        self.size = random.uniform(*size_range)
 
 
 class Renderer:
@@ -45,11 +53,22 @@ class Renderer:
     def draw(self, engine, dt: float = 0.016):
         # Spawn particles for any new explosions
         while self._known_explosion_count < len(engine.explosions):
-            ex, ey, _ = engine.explosions[self._known_explosion_count]
+            ex, ey, _, etype = engine.explosions[self._known_explosion_count]
             cx = ex * TILE_SIZE + HALF
             cy = ey * TILE_SIZE + HALF
-            for _ in range(30):
-                self._particles.append(_Particle(cx, cy))
+            if etype == "missile":
+                blast_px = MISSILE_BLAST_RADIUS * TILE_SIZE
+                for _ in range(80):
+                    self._particles.append(_Particle(
+                        cx, cy,
+                        palette=MISSILE_FLAME_COLORS,
+                        speed_range=(40, blast_px / 1.0),
+                        size_range=(3, 7),
+                        life_range=(0.8, 2.0),
+                    ))
+            else:
+                for _ in range(30):
+                    self._particles.append(_Particle(cx, cy, palette=SHIP_FLAME_COLORS))
             self._known_explosion_count += 1
 
         # Update particles
@@ -67,6 +86,7 @@ class Renderer:
         self._draw_grid()
         self._draw_scan_pulses(engine)
         self._draw_lasers(engine)
+        self._draw_missiles(engine)
         self._draw_scan_markers(engine.player, engine.tick_count)
         self._draw_ship(engine.player, COLOR_PLAYER)
         if engine.player.shield and engine.player.alive:
@@ -123,6 +143,11 @@ class Renderer:
 
     def _draw_lasers(self, engine):
         for laser in engine.lasers:
+            if laser.owner != "player" and not self.debug:
+                dx = laser.x - engine.player.x
+                dy = laser.y - engine.player.y
+                if dx * dx + dy * dy > LASER_VISIBLE_RANGE * LASER_VISIBLE_RANGE:
+                    continue
             color = COLOR_LASER_P if laser.owner == "player" else COLOR_LASER_E
             cx = laser.x * TILE_SIZE + HALF
             cy = laser.y * TILE_SIZE + HALF
@@ -167,6 +192,19 @@ class Renderer:
                 points.append((int(px), int(py)))
             if len(points) >= 2:
                 pygame.draw.lines(self.surface, color, False, points, 1)
+
+    def _draw_missiles(self, engine):
+        """Draw player missiles always, enemy missiles only in debug mode."""
+        for missile in engine.missiles:
+            if missile.owner != "player" and not self.debug:
+                continue
+            cx = missile.x * TILE_SIZE + HALF
+            cy = missile.y * TILE_SIZE + HALF
+            pygame.draw.circle(self.surface, COLOR_PLAYER, (int(cx), int(cy)), max(3, TILE_SIZE // 2))
+            # Small cross to distinguish from lasers
+            s = 2
+            pygame.draw.line(self.surface, COLOR_WHITE, (int(cx - s), int(cy)), (int(cx + s), int(cy)), 1)
+            pygame.draw.line(self.surface, COLOR_WHITE, (int(cx), int(cy - s)), (int(cx), int(cy + s)), 1)
 
     def _draw_scan_markers(self, player_ship, engine_tick_count):
         from settings import SCAN_MAX_AGE

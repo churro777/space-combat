@@ -10,6 +10,7 @@ from game.bot import Bot
 from ui.renderer import Renderer
 from ui.hud import HUD
 from ui.input_handler import InputHandler
+from audio.manager import SoundManager
 
 GRID_PX = GRID_SIZE * TILE_SIZE
 
@@ -109,6 +110,7 @@ def main():
     pygame.display.set_caption("Space Combat v2 — Relativistic Warfare")
     clock = pygame.time.Clock()
 
+    sound_manager = SoundManager()
     joystick = _init_joystick()
 
     if not title_screen(screen, clock, joystick):
@@ -149,8 +151,10 @@ def main():
         while tick_accumulator >= tick_interval:
             tick_accumulator -= tick_interval
             if not engine.game_over:
-                direction, fire, scan = input_handler.get_continuous_state()
-                engine.tick(direction, fire, scan)
+                direction, fire, scan, missile = input_handler.get_continuous_state()
+                engine.tick(direction, fire, scan, missile)
+                for event in engine.events:
+                    sound_manager.play(event)
 
         renderer.draw(engine, dt)
         hud.draw(engine)
