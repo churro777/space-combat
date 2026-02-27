@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""CLI tool for auditioning synthesized sound effect variations."""
+"""CLI tool for auditioning synthesized sound effect variations.
+
+Single-keypress controls inside a category (no Enter needed):
+  w/s = prev/next (auto-plays)    + = like    - = dislike
+  r = replay    b = back    v = votes    q = quit
+"""
 
 import sys
 import os
+import tty
+import termios
 
 # Allow imports from project root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -27,15 +34,64 @@ SOUNDS = {
         "13. Ascending rings":       lambda: synth.laser_ascending_rings(),
         "14. Quick charge chirp":    lambda: synth.laser_quick_charge_chirp(),
     },
+    "scan": {
+        "1. Harmonic pulse sweep":     lambda: synth.scan_harmonic_pulse_sweep(),
+        "2. Dual pulse":               lambda: synth.scan_dual_pulse(),
+        "3. Rising dual pulse":        lambda: synth.scan_rising_dual_pulse(),
+        "4. Triple tone sweep":        lambda: synth.scan_triple_tone_sweep(),
+        "5. Accelerating pulse sweep": lambda: synth.scan_accelerating_pulse_sweep(),
+        "6. Wide rising pulse":        lambda: synth.scan_wide_rising_pulse(),
+        "7. Converging pulse":         lambda: synth.scan_converging_pulse(),
+        "8. Harmonic rising spread":   lambda: synth.scan_harmonic_rising_spread(),
+    },
+    "contact": {
+        "1. Success ding":           lambda: synth.contact_success_ding(),
+        "2. Octave ping":            lambda: synth.contact_octave_ping(),
+        "3. Ascending chime":        lambda: synth.contact_ascending_chime(),
+        "4. Triple rising pulse":    lambda: synth.contact_triple_rising_pulse(),
+    },
 }
+
+
+def getch():
+    """Read a single keypress without waiting for Enter."""
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    try:
+        tty.setraw(fd)
+        ch = sys.stdin.read(1)
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+    return ch
+
+
+def display_list(choice, var_keys, idx, votes):
+    """Print the sound list with cursor and vote markers."""
+    print(f"\n--- {choice} ---")
+    for i, key in enumerate(var_keys):
+        vote_key = f"{choice}/{key}"
+        marker = ""
+        if vote_key in votes:
+            marker = "  [+]" if votes[vote_key] == "up" else "  [-]"
+        cursor = " >> " if i == idx else "    "
+        print(f"{cursor}{key}{marker}")
+    print()
+    print("  w/s = prev/next    r = replay    + = like    - = dislike")
+    print("  b = back           v = votes     q = quit")
+
+
+def play_sound(variations, var_keys, idx):
+    """Generate and play the sound at the given index. Returns the Sound."""
+    print(f"  Playing: {var_keys[idx]}")
+    sound = variations[var_keys[idx]]()
+    sound.play()
+    return sound
 
 
 def main():
     pygame.mixer.init()
 
-    last_sound = None
-    last_name = None
-    votes = {}  # "category/name" -> "up" or "down"
+    votes = {}
     categories = list(SOUNDS.keys())
 
     while True:
@@ -58,62 +114,63 @@ def main():
 
         variations = SOUNDS[choice]
         var_keys = list(variations.keys())
+        idx = 0
+
+        display_list(choice, var_keys, idx, votes)
+        last_sound = play_sound(variations, var_keys, idx)
 
         while True:
-            print(f"\n--- {choice} ---")
-            for key in var_keys:
-                vote_key = f"{choice}/{key}"
-                marker = ""
-                if vote_key in votes:
-                    marker = "  [+]" if votes[vote_key] == "up" else "  [-]"
-                print(f"  {key}{marker}")
-            if last_name:
-                print(f"\n  Selected: {last_name}")
-            print()
-            print("  # = select    Enter = play    + = like    - = dislike")
-            print("  b = back      v = votes       q = quit")
+            key = getch()
 
-            pick = input("> ").strip().lower()
-            if pick == "q":
+            # Ctrl-C / Ctrl-D
+            if key in ("\x03", "\x04"):
                 print_votes(votes)
                 pygame.mixer.quit()
                 return
-            if pick == "b":
+
+            if key == "q":
+                print_votes(votes)
+                pygame.mixer.quit()
+                return
+            if key == "b":
                 break
-            if pick == "v":
+            if key == "w":
+                idx = (idx - 1) % len(var_keys)
+                display_list(choice, var_keys, idx, votes)
+                last_sound = play_sound(variations, var_keys, idx)
+                continue
+            if key == "s":
+                idx = (idx + 1) % len(var_keys)
+                display_list(choice, var_keys, idx, votes)
+                last_sound = play_sound(variations, var_keys, idx)
+                continue
+            if key in ("\r", "\n"):
+                last_sound = play_sound(variations, var_keys, idx)
+                continue
+            if key == "r":
+                if last_sound:
+                    print(f"  Replaying: {var_keys[idx]}")
+                    last_sound.play()
+                continue
+            if key == "+":
+                vote_key = f"{choice}/{var_keys[idx]}"
+                votes[vote_key] = "up"
+                print(f"  Liked: {var_keys[idx]}")
+                idx = (idx + 1) % len(var_keys)
+                display_list(choice, var_keys, idx, votes)
+                last_sound = play_sound(variations, var_keys, idx)
+                continue
+            if key == "-":
+                vote_key = f"{choice}/{var_keys[idx]}"
+                votes[vote_key] = "down"
+                print(f"  Disliked: {var_keys[idx]}")
+                idx = (idx + 1) % len(var_keys)
+                display_list(choice, var_keys, idx, votes)
+                last_sound = play_sound(variations, var_keys, idx)
+                continue
+            if key == "v":
                 print_votes(votes)
                 continue
-            if pick == "" and last_sound:
-                print(f"Playing: {last_name}")
-                last_sound.play()
-                continue
-            if pick == "+" and last_name:
-                vote_key = f"{choice}/{last_name}"
-                votes[vote_key] = "up"
-                print(f"  Liked: {last_name}")
-                continue
-            if pick == "-" and last_name:
-                vote_key = f"{choice}/{last_name}"
-                votes[vote_key] = "down"
-                print(f"  Disliked: {last_name}")
-                continue
-
-            # Match by leading number
-            matched = None
-            for key in var_keys:
-                if key.startswith(pick + "."):
-                    matched = key
-                    break
-
-            if matched is None:
-                print(f"Unknown choice: {pick}")
-                continue
-
-            print(f"Playing: {matched}")
-            sound = variations[matched]()
-            sound.play()
-            last_sound = sound
-            last_name = matched
 
     print_votes(votes)
     pygame.mixer.quit()

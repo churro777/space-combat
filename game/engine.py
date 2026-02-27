@@ -67,6 +67,7 @@ class GameEngine:
                     origin_x=self.player.x, origin_y=self.player.y, radius=0, owner="player"
                 ))
                 self.player.scan_cooldown = SCAN_COOLDOWN
+                self.events.append("scan_pulse")
             if player_missile and self.player.missile_cooldown == 0 and self.player.missiles_remaining > 0 and self.player.scan_results:
                 latest = max(self.player.scan_results, key=lambda s: s.turn_received)
                 tx, ty = latest.enemy_position
@@ -199,6 +200,8 @@ class GameEngine:
                     turn_detected=pulse.contact_turn,
                     turn_received=self.tick_count,
                 ))
+                if pulse.owner == "player":
+                    self.events.append("scan_contact")
                 self.scan_pulses.remove(pulse)
 
         # 8. Cleanup off-grid objects

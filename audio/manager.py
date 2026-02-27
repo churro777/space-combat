@@ -1,5 +1,5 @@
 import pygame
-from audio.synth import laser_harmonic_stutter
+from audio.synth import laser_harmonic_stutter, scan_wide_rising_pulse, contact_triple_rising_pulse
 
 
 class SoundManager:
@@ -8,6 +8,8 @@ class SoundManager:
             pygame.mixer.init()
             self.sounds: dict[str, pygame.mixer.Sound] = {
                 "laser_fire": laser_harmonic_stutter(),
+                "scan_pulse": scan_wide_rising_pulse(),
+                "scan_contact": contact_triple_rising_pulse(),
             }
             self.enabled = True
         except pygame.error:
