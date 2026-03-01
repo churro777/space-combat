@@ -1,4 +1,4 @@
-GRID_SIZE = 100
+GRID_SIZE = 120
 TILE_SIZE = 7
 SIDEBAR_WIDTH = 260
 WINDOW_WIDTH = GRID_SIZE * TILE_SIZE + SIDEBAR_WIDTH
@@ -17,6 +17,9 @@ MISSILE_BLAST_RADIUS = 5 # tiles
 MISSILE_AMMO = 5         # total missiles per ship
 
 LASER_VISIBLE_RANGE = 20  # enemy lasers visible within this many tiles of player
+
+VIEWPORT_TILES = 40       # tiles visible per axis in camera view
+VIEWPORT_TILE_PX = (GRID_SIZE * TILE_SIZE) / VIEWPORT_TILES  # ~23.3px per tile on screen
 
 C_SPEED = 2          # tiles per tick (lightspeed)
 SHIP_SPEED = 1       # tiles per tick (0.5c)
