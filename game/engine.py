@@ -74,6 +74,7 @@ class GameEngine:
                 self.missiles.append(Missile(x=float(self.player.x), y=float(self.player.y), target_x=tx, target_y=ty, owner="player"))
                 self.player.missile_cooldown = MISSILE_COOLDOWN
                 self.player.missiles_remaining -= 1
+                self.events.append("missile_launch")
 
         # 2. Apply bot actions
         if self.bot.alive:
@@ -111,12 +112,14 @@ class GameEngine:
             for ship in (self.player, self.bot):
                 ship.alive = False
                 self.explosions.append((ship.x, ship.y, self.tick_count, "ship"))
+            self.events.append("ship_destroy")
 
         # 2c. Advance missiles
         for missile in list(self.missiles):
             if missile.advance():
                 self.missiles.remove(missile)
                 self.explosions.append((missile.target_x, missile.target_y, self.tick_count, "missile"))
+                self.events.append("missile_explosion")
                 target = self.bot if missile.owner == "player" else self.player
                 if target.alive:
                     dx = target.x - missile.target_x
@@ -126,9 +129,11 @@ class GameEngine:
                         if target.shield:
                             target.shield = False
                             target.shield_recharge = SHIELD_RECHARGE
+                            self.events.append("shield_hit")
                         else:
                             target.alive = False
                             self.explosions.append((target.x, target.y, self.tick_count, "ship"))
+                            self.events.append("ship_destroy")
             elif not missile.is_on_grid():
                 self.missiles.remove(missile)
 
@@ -148,6 +153,8 @@ class GameEngine:
                 ship.shield_recharge -= 1
                 if ship.shield_recharge == 0:
                     ship.shield = True
+                    if ship is self.player:
+                        self.events.append("shield_recharge")
 
         # 6. Laser-ship collisions
         for laser, tiles in laser_trails:
@@ -156,9 +163,11 @@ class GameEngine:
                 if target.shield:
                     target.shield = False
                     target.shield_recharge = SHIELD_RECHARGE
+                    self.events.append("shield_hit")
                 else:
                     target.alive = False
                     self.explosions.append((target.x, target.y, self.tick_count, "ship"))
+                    self.events.append("ship_destroy")
 
         # 6. Outgoing scan contacts
         new_return_pulses = []

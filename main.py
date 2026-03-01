@@ -113,9 +113,13 @@ def main():
     sound_manager = SoundManager()
     joystick = _init_joystick()
 
+    sound_manager.play_music_intro()
+
     if not title_screen(screen, clock, joystick):
         pygame.quit()
         sys.exit()
+
+    sound_manager.transition_to_game()
 
     bot = Bot()
     engine = GameEngine(bot)
@@ -144,6 +148,7 @@ def main():
             engine = GameEngine(bot)
             renderer.reset()
             tick_accumulator = 0.0
+            sound_manager.transition_to_game()
             hud.show_message("New game!", 120)
             continue
 
