@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "space_combat_v2",
+  "project_id": "da82cda3-9a75-469d-ad1a-6f0ba274f0ce"
+}
