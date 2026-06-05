@@ -74,13 +74,15 @@ def _get_joystick_direction(joystick) -> tuple[int, int] | None:
 
 
 class InputHandler:
-    def __init__(self, hud, renderer, joystick=None):
+    def __init__(self, hud, renderer, joystick=None, touch_controls=None):
         self.hud = hud
         self.renderer = renderer
         self.joystick = joystick
+        self.touch_controls = touch_controls
         self._fire_pressed = False
         self._scan_pressed = False
         self._missile_pressed = False
+        self._touch_tapped = False
 
     def process_events(self) -> tuple[bool, bool]:
         """Process pygame events. Returns (quit, restart)."""
@@ -103,6 +105,11 @@ class InputHandler:
                     self._scan_pressed = True
                 elif event.key == pygame.K_e:
                     self._missile_pressed = True
+            elif event.type in (pygame.FINGERDOWN, pygame.FINGERUP, pygame.FINGERMOTION):
+                if self.touch_controls is not None:
+                    self.touch_controls.handle_event(event)
+                if event.type == pygame.FINGERDOWN:
+                    self._touch_tapped = True
             elif event.type == pygame.JOYBUTTONDOWN:
                 if event.button == 0:      # A → fire
                     self._fire_pressed = True
@@ -131,5 +138,13 @@ class InputHandler:
         self._fire_pressed = False
         self._scan_pressed = False
         self._missile_pressed = False
+
+        if self.touch_controls is not None:
+            touch_dir, touch_fire, touch_scan, touch_missile = self.touch_controls.get_state()
+            if direction is None and touch_dir is not None:
+                direction = touch_dir
+            fire = fire or touch_fire
+            scan = scan or touch_scan
+            missile = missile or touch_missile
 
         return direction, fire, scan, missile
