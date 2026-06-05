@@ -5,11 +5,9 @@ from settings import (
     GRID_SIZE, TILE_SIZE, COLOR_BG, COLOR_GRID, COLOR_PLAYER, COLOR_ENEMY,
     COLOR_LASER_P, COLOR_LASER_E, COLOR_SCAN_OUT, COLOR_SCAN_RET,
     COLOR_SCAN_MARK, COLOR_WHITE, MISSILE_BLAST_RADIUS, LASER_VISIBLE_RANGE,
-    VIEWPORT_TILES, VIEWPORT_TILE_PX,
+    VIEWPORT_TILES, VIEWPORT_TILE_PX, MOBILE, MOBILE_HUD_HEIGHT,
 )
 
-GRID_PX = GRID_SIZE * TILE_SIZE  # 700px total grid area
-VP_HALF = VIEWPORT_TILE_PX / 2   # half a viewport tile in pixels
 
 SHIP_FLAME_COLORS = [
     (255, 255, 200),
@@ -55,6 +53,22 @@ class Renderer:
         # Camera state (top-left tile coordinate of viewport)
         self._cam_tx = 0.0
         self._cam_ty = 0.0
+        # Mobile vs desktop grid sizing
+        if MOBILE:
+            sw, sh = surface.get_size()
+            self._grid_y_offset = MOBILE_HUD_HEIGHT
+            grid_h = sh - MOBILE_HUD_HEIGHT
+            grid_w = sw
+            self._mobile_tile_px = min(grid_w, grid_h) / VIEWPORT_TILES
+            self._grid_px = min(grid_w, grid_h)
+        else:
+            self._grid_y_offset = 0
+            self._mobile_tile_px = None
+            self._grid_px = GRID_SIZE * TILE_SIZE
+
+    @property
+    def tile_px(self):
+        return self._mobile_tile_px if self._mobile_tile_px else VIEWPORT_TILE_PX
 
     def _update_camera(self, player):
         """Center camera on player, clamped to grid bounds."""
@@ -64,8 +78,9 @@ class Renderer:
 
     def _tile_to_screen(self, tx, ty):
         """Convert tile coords to screen pixel coords."""
-        sx = (tx - self._cam_tx) * VIEWPORT_TILE_PX
-        sy = (ty - self._cam_ty) * VIEWPORT_TILE_PX
+        tpx = self.tile_px
+        sx = (tx - self._cam_tx) * tpx
+        sy = (ty - self._cam_ty) * tpx + self._grid_y_offset
         return sx, sy
 
     def _in_viewport(self, tx, ty, margin=1):
@@ -121,7 +136,7 @@ class Renderer:
         self._draw_particles()
 
     def _draw_grid(self):
-        self.surface.fill(COLOR_BG, (0, 0, GRID_PX, GRID_PX))
+        self.surface.fill(COLOR_BG, (0, self._grid_y_offset, self._grid_px, self._grid_px))
         # Draw grid lines for the visible area
         # Determine which tile lines are visible
         start_tx = int(self._cam_tx)
@@ -129,20 +144,21 @@ class Renderer:
         start_ty = int(self._cam_ty)
         end_ty = int(self._cam_ty + VIEWPORT_TILES) + 1
         step = 5  # draw every 5th grid line for cleaner look at this scale
+        grid_bottom = self._grid_y_offset + self._grid_px
         for i in range(start_tx, min(end_tx + 1, GRID_SIZE + 1)):
             if i % step != 0:
                 continue
             sx, _ = self._tile_to_screen(i, 0)
             sx = int(sx)
-            if 0 <= sx <= GRID_PX:
-                pygame.draw.line(self.surface, COLOR_GRID, (sx, 0), (sx, GRID_PX))
+            if 0 <= sx <= self._grid_px:
+                pygame.draw.line(self.surface, COLOR_GRID, (sx, self._grid_y_offset), (sx, grid_bottom))
         for j in range(start_ty, min(end_ty + 1, GRID_SIZE + 1)):
             if j % step != 0:
                 continue
             _, sy = self._tile_to_screen(0, j)
             sy = int(sy)
-            if 0 <= sy <= GRID_PX:
-                pygame.draw.line(self.surface, COLOR_GRID, (0, sy), (GRID_PX, sy))
+            if self._grid_y_offset <= sy <= grid_bottom:
+                pygame.draw.line(self.surface, COLOR_GRID, (0, sy), (self._grid_px, sy))
 
     def _draw_ship(self, ship, color):
         if not ship.alive:
@@ -150,7 +166,7 @@ class Renderer:
         if not self._in_viewport(ship.x, ship.y, margin=2):
             return
         sx, sy = self._tile_to_screen(ship.x + 0.5, ship.y + 0.5)
-        r = VIEWPORT_TILE_PX * 0.45
+        r = self.tile_px * 0.45
         fdx, fdy = ship.facing
         angle = math.atan2(-fdy, fdx)
         points = []
@@ -164,11 +180,11 @@ class Renderer:
         if not self._in_viewport(ship.x, ship.y, margin=2):
             return
         sx, sy = self._tile_to_screen(ship.x + 0.5, ship.y + 0.5)
-        radius = int(VIEWPORT_TILE_PX * 0.55)
+        radius = int(self.tile_px * 0.55)
         pygame.draw.circle(self.surface, (80, 150, 255), (int(sx), int(sy)), radius, 1)
 
     def _draw_particles(self):
-        scale = VIEWPORT_TILE_PX / TILE_SIZE  # scale factor for particle sizes
+        scale = self.tile_px / TILE_SIZE  # scale factor for particle sizes
         for p in self._particles:
             if not self._in_viewport(p.tx, p.ty, margin=3):
                 continue
@@ -196,11 +212,11 @@ class Renderer:
                 continue
             color = COLOR_LASER_P if laser.owner == "player" else COLOR_LASER_E
             sx, sy = self._tile_to_screen(laser.x + 0.5, laser.y + 0.5)
-            dot_r = max(3, int(VIEWPORT_TILE_PX * 0.3))
+            dot_r = max(3, int(self.tile_px * 0.3))
             pygame.draw.circle(self.surface, color, (int(sx), int(sy)), dot_r)
             # Trail: 2 tiles behind
-            tail_sx = sx - laser.dx * VIEWPORT_TILE_PX * 2
-            tail_sy = sy - laser.dy * VIEWPORT_TILE_PX * 2
+            tail_sx = sx - laser.dx * self.tile_px * 2
+            tail_sy = sy - laser.dy * self.tile_px * 2
             pygame.draw.line(self.surface, color, (int(tail_sx), int(tail_sy)), (int(sx), int(sy)), 2)
 
     def _draw_scan_pulses(self, engine):
@@ -211,7 +227,7 @@ class Renderer:
                 continue
             color = COLOR_PLAYER if pulse.owner == "player" else COLOR_ENEMY
             sx, sy = self._tile_to_screen(pulse.origin_x + 0.5, pulse.origin_y + 0.5)
-            pixel_radius = int(pulse.radius * VIEWPORT_TILE_PX)
+            pixel_radius = int(pulse.radius * self.tile_px)
             if pulse.returning:
                 pygame.draw.circle(self.surface, color, (int(sx), int(sy)), pixel_radius, 2)
             else:
@@ -243,9 +259,9 @@ class Renderer:
             if not self._in_viewport(missile.x, missile.y, margin=2):
                 continue
             sx, sy = self._tile_to_screen(missile.x + 0.5, missile.y + 0.5)
-            dot_r = max(3, int(VIEWPORT_TILE_PX * 0.3))
+            dot_r = max(3, int(self.tile_px * 0.3))
             pygame.draw.circle(self.surface, COLOR_PLAYER, (int(sx), int(sy)), dot_r)
-            s = int(VIEWPORT_TILE_PX * 0.15)
+            s = int(self.tile_px * 0.15)
             pygame.draw.line(self.surface, COLOR_WHITE, (int(sx - s), int(sy)), (int(sx + s), int(sy)), 1)
             pygame.draw.line(self.surface, COLOR_WHITE, (int(sx), int(sy - s)), (int(sx), int(sy + s)), 1)
 
@@ -254,7 +270,7 @@ class Renderer:
         alive = [r for r in player_ship.scan_results if engine_tick_count - r.turn_detected <= SCAN_MAX_AGE]
         recent = alive[-10:]
         total = len(recent)
-        edge_margin = VIEWPORT_TILE_PX * 0.8  # padding from screen edge for pinned markers
+        edge_margin = self.tile_px * 0.8  # padding from screen edge for pinned markers
         for i, result in enumerate(recent):
             ex, ey = result.enemy_position
             sx, sy = self._tile_to_screen(ex + 0.5, ey + 0.5)
@@ -262,7 +278,7 @@ class Renderer:
 
             if on_screen:
                 # Normal diamond marker
-                s = VIEWPORT_TILE_PX * 0.45
+                s = self.tile_px * 0.45
                 pygame.draw.polygon(self.surface, COLOR_SCAN_MARK, [
                     (sx, sy - s), (sx + s, sy), (sx, sy + s), (sx - s, sy),
                 ], 2)
@@ -272,10 +288,10 @@ class Renderer:
             else:
                 # Off-screen: pin to viewport edge in the direction of the marker
                 # Clamp to grid area with margin
-                cx = max(edge_margin, min(GRID_PX - edge_margin, sx))
-                cy = max(edge_margin, min(GRID_PX - edge_margin, sy))
+                cx = max(edge_margin, min(self._grid_px - edge_margin, sx))
+                cy = max(edge_margin, min(self._grid_px - edge_margin, sy))
                 # Draw a smaller arrow/chevron pointing outward
-                s = VIEWPORT_TILE_PX * 0.35
+                s = self.tile_px * 0.35
                 # Fade based on age
                 age_frac = (engine_tick_count - result.turn_detected) / SCAN_MAX_AGE
                 alpha = max(80, int(255 * (1.0 - age_frac)))
