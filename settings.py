@@ -21,6 +21,9 @@ LASER_VISIBLE_RANGE = 20  # enemy lasers visible within this many tiles of playe
 VIEWPORT_TILES = 40       # tiles visible per axis in camera view
 VIEWPORT_TILE_PX = (GRID_SIZE * TILE_SIZE) / VIEWPORT_TILES  # ~23.3px per tile on screen
 
+MOBILE = False
+MOBILE_HUD_HEIGHT = 28
+
 C_SPEED = 2          # tiles per tick (lightspeed)
 SHIP_SPEED = 1       # tiles per tick (0.5c)
 
