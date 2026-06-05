@@ -66,9 +66,25 @@ async def title_screen(screen, clock, joystick, mobile=False):
     sub_font = pygame.font.SysFont("monospace", 14)
 
     sw, sh = screen.get_size()
+    rotate_font = pygame.font.SysFont("monospace", 28, bold=True)
+    rotate_sub_font = pygame.font.SysFont("monospace", 16)
 
     frame = 0
     while True:
+        if mobile and sw < sh:
+            sw, sh = screen.get_size()
+            for event in _safe_event_get():
+                if event.type == pygame.QUIT:
+                    return False
+            screen.fill(COLOR_BG)
+            msg = rotate_font.render("Rotate Device", True, COLOR_WHITE)
+            sub = rotate_sub_font.render("Landscape mode required", True, (150, 150, 180))
+            screen.blit(msg, msg.get_rect(center=(sw // 2, sh // 2 - 20)))
+            screen.blit(sub, sub.get_rect(center=(sw // 2, sh // 2 + 20)))
+            pygame.display.flip()
+            await asyncio.sleep(0)
+            continue
+
         for event in _safe_event_get():
             if event.type == pygame.QUIT:
                 return False
@@ -167,9 +183,28 @@ async def main():
     tick_interval = 1.0 / TICK_RATE
     tick_accumulator = 0.0
 
+    rotate_font = pygame.font.SysFont("monospace", 28, bold=True)
+    rotate_sub = pygame.font.SysFont("monospace", 16)
+
     running = True
     while running:
         dt = clock.tick(FPS) / 1000.0
+
+        if mobile:
+            cur_w, cur_h = screen.get_size()
+            if cur_w < cur_h:
+                for event in _safe_event_get():
+                    if event.type == pygame.QUIT:
+                        running = False
+                screen.fill(COLOR_BG)
+                msg = rotate_font.render("Rotate Device", True, COLOR_WHITE)
+                sub = rotate_sub.render("Landscape mode required", True, (150, 150, 180))
+                screen.blit(msg, msg.get_rect(center=(cur_w // 2, cur_h // 2 - 20)))
+                screen.blit(sub, sub.get_rect(center=(cur_w // 2, cur_h // 2 + 20)))
+                pygame.display.flip()
+                await asyncio.sleep(0)
+                continue
+
         tick_accumulator += dt
 
         quit_game, restart = input_handler.process_events()
