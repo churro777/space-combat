@@ -71,22 +71,11 @@ async def title_screen(screen, clock, joystick, mobile=False):
 
     frame = 0
     while True:
-        if mobile and sw < sh:
-            sw, sh = screen.get_size()
-            for event in _safe_event_get():
-                if event.type == pygame.QUIT:
-                    return False
-            screen.fill(COLOR_BG)
-            msg = rotate_font.render("Rotate Device", True, COLOR_WHITE)
-            sub = rotate_sub_font.render("Landscape mode required", True, (150, 150, 180))
-            screen.blit(msg, msg.get_rect(center=(sw // 2, sh // 2 - 20)))
-            screen.blit(sub, sub.get_rect(center=(sw // 2, sh // 2 + 20)))
-            pygame.display.flip()
-            await asyncio.sleep(0)
-            continue
-
         for event in _safe_event_get():
-            if event.type == pygame.QUIT:
+            if event.type == pygame.VIDEORESIZE:
+                sw, sh = event.w, event.h
+                screen = pygame.display.set_mode((sw, sh), pygame.RESIZABLE)
+            elif event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
@@ -104,6 +93,15 @@ async def title_screen(screen, clock, joystick, mobile=False):
         frame += 1
 
         screen.fill(COLOR_BG)
+
+        if mobile and sw < sh:
+            msg = rotate_font.render("Rotate Device", True, COLOR_WHITE)
+            sub = rotate_sub_font.render("Landscape mode required", True, (150, 150, 180))
+            screen.blit(msg, msg.get_rect(center=(sw // 2, sh // 2 - 20)))
+            screen.blit(sub, sub.get_rect(center=(sw // 2, sh // 2 + 20)))
+            pygame.display.flip()
+            await asyncio.sleep(0)
+            continue
 
         title = title_font.render("SPACE COMBAT", True, (0, 200, 255))
         title_rect = title.get_rect(center=(sw // 2, sh // 3))
@@ -144,7 +142,7 @@ async def main():
     if mobile:
         info = pygame.display.Info()
         screen_w, screen_h = info.current_w, info.current_h
-        screen = pygame.display.set_mode((screen_w, screen_h))
+        screen = pygame.display.set_mode((screen_w, screen_h), pygame.RESIZABLE)
     else:
         screen_w, screen_h = WINDOW_WIDTH, WINDOW_HEIGHT
         screen = pygame.display.set_mode((screen_w, screen_h))
@@ -190,24 +188,24 @@ async def main():
     while running:
         dt = clock.tick(FPS) / 1000.0
 
-        if mobile:
-            cur_w, cur_h = screen.get_size()
-            if cur_w < cur_h:
-                for event in _safe_event_get():
-                    if event.type == pygame.QUIT:
-                        running = False
-                screen.fill(COLOR_BG)
-                msg = rotate_font.render("Rotate Device", True, COLOR_WHITE)
-                sub = rotate_sub.render("Landscape mode required", True, (150, 150, 180))
-                screen.blit(msg, msg.get_rect(center=(cur_w // 2, cur_h // 2 - 20)))
-                screen.blit(sub, sub.get_rect(center=(cur_w // 2, cur_h // 2 + 20)))
-                pygame.display.flip()
-                await asyncio.sleep(0)
-                continue
-
         tick_accumulator += dt
 
         quit_game, restart = input_handler.process_events()
+
+        # Handle resize events (mobile rotation)
+        for event in pygame.event.get(pygame.VIDEORESIZE):
+            screen_w, screen_h = event.w, event.h
+            screen = pygame.display.set_mode((screen_w, screen_h), pygame.RESIZABLE)
+
+        if mobile and screen_w < screen_h:
+            screen.fill(COLOR_BG)
+            msg = rotate_font.render("Rotate Device", True, COLOR_WHITE)
+            sub = rotate_sub.render("Landscape mode required", True, (150, 150, 180))
+            screen.blit(msg, msg.get_rect(center=(screen_w // 2, screen_h // 2 - 20)))
+            screen.blit(sub, sub.get_rect(center=(screen_w // 2, screen_h // 2 + 20)))
+            pygame.display.flip()
+            await asyncio.sleep(0)
+            continue
 
         if mobile and engine.game_over and input_handler._touch_tapped:
             restart = True
