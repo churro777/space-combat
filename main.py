@@ -60,6 +60,30 @@ def _detect_mobile() -> bool:
     return info.current_w < 1100
 
 
+def _get_viewport_size():
+    """Get actual browser viewport size via JS. Falls back to pygame display info."""
+    try:
+        from platform import window
+        return int(window.innerWidth), int(window.innerHeight)
+    except (ImportError, AttributeError):
+        info = pygame.display.Info()
+        return info.current_w, info.current_h
+
+
+def _resize_canvas(w, h):
+    """Resize the Pygbag HTML canvas to match viewport."""
+    try:
+        from platform import window
+        canvas = window.document.getElementById("canvas")
+        if canvas:
+            canvas.width = w
+            canvas.height = h
+            canvas.style.width = f"{w}px"
+            canvas.style.height = f"{h}px"
+    except (ImportError, AttributeError):
+        pass
+
+
 async def title_screen(screen, clock, joystick, mobile=False):
     title_font = pygame.font.SysFont("monospace", 52, bold=True)
     prompt_font = pygame.font.SysFont("monospace", 18)
@@ -72,10 +96,7 @@ async def title_screen(screen, clock, joystick, mobile=False):
     frame = 0
     while True:
         for event in _safe_event_get():
-            if event.type == pygame.VIDEORESIZE:
-                sw, sh = event.w, event.h
-                screen = pygame.display.set_mode((sw, sh), pygame.RESIZABLE)
-            elif event.type == pygame.QUIT:
+            if event.type == pygame.QUIT:
                 return False
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_q:
@@ -86,11 +107,19 @@ async def title_screen(screen, clock, joystick, mobile=False):
                 if event.button == 6:
                     return True
             elif event.type == pygame.FINGERDOWN:
-                if mobile:
+                if mobile and sw >= sh:
                     return True
 
         clock.tick(FPS)
         frame += 1
+
+        # Poll viewport size each frame on mobile (handles rotation)
+        if mobile:
+            vw, vh = _get_viewport_size()
+            if (vw, vh) != (sw, sh):
+                sw, sh = vw, vh
+                _resize_canvas(sw, sh)
+                screen = pygame.display.set_mode((sw, sh))
 
         screen.fill(COLOR_BG)
 
@@ -140,9 +169,9 @@ async def main():
     settings_module.MOBILE = mobile
 
     if mobile:
-        info = pygame.display.Info()
-        screen_w, screen_h = info.current_w, info.current_h
-        screen = pygame.display.set_mode((screen_w, screen_h), pygame.RESIZABLE)
+        screen_w, screen_h = _get_viewport_size()
+        _resize_canvas(screen_w, screen_h)
+        screen = pygame.display.set_mode((screen_w, screen_h))
     else:
         screen_w, screen_h = WINDOW_WIDTH, WINDOW_HEIGHT
         screen = pygame.display.set_mode((screen_w, screen_h))
@@ -160,6 +189,12 @@ async def main():
         return
 
     sound_manager.transition_to_game()
+
+    # Re-query viewport after title screen (may have rotated)
+    if mobile:
+        screen_w, screen_h = _get_viewport_size()
+        _resize_canvas(screen_w, screen_h)
+        screen = pygame.display.set_mode((screen_w, screen_h))
 
     bot = Bot()
     engine = GameEngine(bot)
@@ -190,12 +225,19 @@ async def main():
 
         tick_accumulator += dt
 
-        quit_game, restart = input_handler.process_events()
+        # Poll viewport size on mobile (handles rotation)
+        if mobile:
+            vw, vh = _get_viewport_size()
+            if (vw, vh) != (screen_w, screen_h):
+                screen_w, screen_h = vw, vh
+                _resize_canvas(screen_w, screen_h)
+                screen = pygame.display.set_mode((screen_w, screen_h))
+                renderer = Renderer(screen)
+                touch_controls = TouchInput(screen_w, screen_h)
+                hud = MobileHUD(screen)
+                input_handler = InputHandler(hud, renderer, joystick, touch_controls=touch_controls)
 
-        # Handle resize events (mobile rotation)
-        for event in pygame.event.get(pygame.VIDEORESIZE):
-            screen_w, screen_h = event.w, event.h
-            screen = pygame.display.set_mode((screen_w, screen_h), pygame.RESIZABLE)
+        quit_game, restart = input_handler.process_events()
 
         if mobile and screen_w < screen_h:
             screen.fill(COLOR_BG)
