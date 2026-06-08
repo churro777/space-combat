@@ -64,6 +64,9 @@ def _get_viewport_size():
     """Get actual browser viewport size via JS. Falls back to pygame display info."""
     try:
         from platform import window
+        vv = getattr(window, 'visualViewport', None)
+        if vv:
+            return int(vv.width), int(vv.height)
         return int(window.innerWidth), int(window.innerHeight)
     except (ImportError, AttributeError):
         info = pygame.display.Info()

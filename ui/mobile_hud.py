@@ -53,7 +53,8 @@ class MobileHUD:
         # --- Right group ---
         facing_name = DIR_NAMES.get(tuple(p.facing), "?")
         pos = p.position
-        right_text = f"{facing_name} · ({pos[0]},{pos[1]})"
+        screen_h = self.surface.get_height()
+        right_text = f"{facing_name} · ({pos[0]},{pos[1]}) [{screen_w}x{screen_h}]"
         right_surf = self.font.render(right_text, True, COLOR_HUD_TEXT)
         self.surface.blit(right_surf, right_surf.get_rect(midright=(screen_w - 10, bar_cy)))
 
